@@ -1,0 +1,73 @@
+name: Vercel Deployment Notification
+
+on:
+  deployment_status:
+
+jobs:
+  send-telegram-notification:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Telegram notification
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const botToken = '${{ secrets.TELEGRAM_BOT_TOKEN }}';
+            const chatId = '${{ secrets.TELEGRAM_CHAT_ID }}';
+            const deploymentStatus = '${{ github.event.deployment_status.state }}';
+            const deploymentUrl = '${{ github.event.deployment_status.target_url }}';
+            const deploymentId = '${{ github.event.deployment.id }}';
+            const commitMessage = '${{ github.event.deployment.description }}';
+            const commitSha = '${{ github.event.deployment.sha }}';
+
+            let message = '';
+            let keyboard = null;
+            if (deploymentStatus === 'success') {
+              message = `*✅ Sync of Lobechat to latest version successful.*
+[Deployment ID - ${deploymentId}]`;
+              keyboard = {
+                inline_keyboard: [
+                  [
+                    {
+                      text: 'Vercel Dashboard',
+                      url: deploymentUrl
+                    }
+                  ]
+                ]
+              };
+            } else if (deploymentStatus === 'failure') {
+              const logsUrl = `${deploymentUrl}/_logs`;
+              message = `*❌ Error* deploying "${commitMessage}" (${commitSha})
+[Deployment ID - ${deploymentId}]`;
+              keyboard = {
+                inline_keyboard: [
+                  [
+                    {
+                      text: 'Logs',
+                      url: logsUrl
+                    }
+                  ]
+                ]
+              };
+            } else {
+              return;
+            }
+
+            const telegramApiUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
+            const response = await fetch(telegramApiUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                chat_id: chatId,
+                text: message,
+                parse_mode: 'Markdown',
+                reply_markup: keyboard
+              })
+            });
+
+            if (!response.ok) {
+              const errorData = await response.json();
+              core.setFailed(`Failed to send Telegram notification. Error: ${errorData.description}`);
+            }
