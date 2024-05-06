@@ -1,4 +1,4 @@
-name: Vercel Deployment Notification
+name: Deployment Notification
 
 on:
   deployment_status:
