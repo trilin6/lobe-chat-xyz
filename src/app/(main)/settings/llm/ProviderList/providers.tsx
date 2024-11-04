@@ -1,37 +1,28 @@
-import {
-  Anthropic,
-  Claude,
-  DeepSeek,
-  Gemini,
-  Google,
-  Groq,
-  Minimax,
-  Mistral,
-  Moonshot,
-  OpenRouter,
-  Perplexity,
-  Together,
-  Tongyi,
-  ZeroOne,
-  Zhipu,
-} from '@lobehub/icons';
-import { Divider } from 'antd';
-import { useTheme } from 'antd-style';
 import { useMemo } from 'react';
-import { Flexbox } from 'react-layout-kit';
 
 import {
+  Ai21ProviderCard,
+  Ai360ProviderCard,
   AnthropicProviderCard,
+  BaichuanProviderCard,
   DeepSeekProviderCard,
+  FireworksAIProviderCard,
   GoogleProviderCard,
   GroqProviderCard,
+  HunyuanProviderCard,
   MinimaxProviderCard,
   MistralProviderCard,
   MoonshotProviderCard,
+  NovitaProviderCard,
   OpenRouterProviderCard,
   PerplexityProviderCard,
   QwenProviderCard,
+  SiliconCloudProviderCard,
+  SparkProviderCard,
+  StepfunProviderCard,
+  TaichuProviderCard,
   TogetherAIProviderCard,
+  UpstageProviderCard,
   ZeroOneProviderCard,
   ZhiPuProviderCard,
 } from '@/config/modelProviders';
@@ -39,103 +30,67 @@ import {
 import { ProviderItem } from '../type';
 import { useAzureProvider } from './Azure';
 import { useBedrockProvider } from './Bedrock';
+import { useGithubProvider } from './Github';
+import { useHuggingFaceProvider } from './HuggingFace';
 import { useOllamaProvider } from './Ollama';
 import { useOpenAIProvider } from './OpenAI';
-
-const AnthropicBrand = () => {
-  const { isDarkMode } = useTheme();
-  return <Anthropic.Text color={isDarkMode ? undefined : Claude.colorPrimary} size={15} />;
-};
-
-const MoonshotBrand = () => {
-  const theme = useTheme();
-  return (
-    <Moonshot.Combine
-      color={theme.isDarkMode ? theme.colorText : Moonshot.colorPrimary}
-      size={22}
-    />
-  );
-};
-
-const GroqBrand = () => {
-  const theme = useTheme();
-
-  return <Groq.Text color={theme.isDarkMode ? theme.colorText : Groq.colorPrimary} size={20} />;
-};
-
-const GoogleBrand = () => (
-  <Flexbox align={'center'} gap={8} horizontal>
-    <Google.BrandColor size={22} />
-    <Divider style={{ margin: '0 4px' }} type={'vertical'} />
-    <Gemini.Combine size={22} type={'color'} />
-  </Flexbox>
-);
+import { useWenxinProvider } from './Wenxin';
+import { useSenseNovaProvider } from './SenseNova';
 
 export const useProviderList = (): ProviderItem[] => {
-  const azureProvider = useAzureProvider();
-  const ollamaProvider = useOllamaProvider();
-  const openAIProvider = useOpenAIProvider();
-  const bedrockProvider = useBedrockProvider();
+  const AzureProvider = useAzureProvider();
+  const OllamaProvider = useOllamaProvider();
+  const OpenAIProvider = useOpenAIProvider();
+  const BedrockProvider = useBedrockProvider();
+  const GithubProvider = useGithubProvider();
+  const HuggingFaceProvider = useHuggingFaceProvider();
+  const WenxinProvider = useWenxinProvider();
+  const SenseNovaProvider = useSenseNovaProvider();
 
   return useMemo(
     () => [
-      openAIProvider,
-      ollamaProvider,
-      azureProvider,
-      {
-        ...GoogleProviderCard,
-        title: <GoogleBrand />,
-      },
-      {
-        ...AnthropicProviderCard,
-        title: <AnthropicBrand />,
-      },
-      bedrockProvider,
-      {
-        ...GroqProviderCard,
-        title: <GroqBrand />,
-      },
-      {
-        ...OpenRouterProviderCard,
-        title: <OpenRouter.Combine iconProps={{ color: OpenRouter.colorPrimary }} size={20} />,
-      },
-      {
-        ...TogetherAIProviderCard,
-        title: <Together.Combine size={26} type={'color'} />,
-      },
-      {
-        ...QwenProviderCard,
-        title: <Tongyi.Combine extra={'千问'} size={26} type={'color'} />,
-      },
-      {
-        ...DeepSeekProviderCard,
-        title: <DeepSeek.Combine size={28} type={'color'} />,
-      },
-      {
-        ...MinimaxProviderCard,
-        title: <Minimax.Combine size={32} type={'color'} />,
-      },
-      {
-        ...MistralProviderCard,
-        title: <Mistral.Combine size={26} type={'color'} />,
-      },
-      {
-        ...MoonshotProviderCard,
-        title: <MoonshotBrand />,
-      },
-      {
-        ...PerplexityProviderCard,
-        title: <Perplexity.Combine size={24} type={'color'} />,
-      },
-      {
-        ...ZhiPuProviderCard,
-        title: <Zhipu.Combine size={32} type={'color'} />,
-      },
-      {
-        ...ZeroOneProviderCard,
-        title: <ZeroOne.Text size={20} />,
-      },
+      OpenAIProvider,
+      AzureProvider,
+      OllamaProvider,
+      AnthropicProviderCard,
+      BedrockProvider,
+      GoogleProviderCard,
+      DeepSeekProviderCard,
+      HuggingFaceProvider,
+      OpenRouterProviderCard,
+      GithubProvider,
+      NovitaProviderCard,
+      TogetherAIProviderCard,
+      FireworksAIProviderCard,
+      GroqProviderCard,
+      PerplexityProviderCard,
+      MistralProviderCard,
+      Ai21ProviderCard,
+      UpstageProviderCard,
+      QwenProviderCard,
+      WenxinProvider,
+      HunyuanProviderCard,
+      SparkProviderCard,
+      ZhiPuProviderCard,
+      ZeroOneProviderCard,
+      SenseNovaProvider,
+      StepfunProviderCard,
+      MoonshotProviderCard,
+      BaichuanProviderCard,
+      MinimaxProviderCard,
+      Ai360ProviderCard,
+      TaichuProviderCard,
+      SiliconCloudProviderCard,
     ],
-    [azureProvider, ollamaProvider, ollamaProvider, bedrockProvider],
+    [
+      AzureProvider,
+      OllamaProvider,
+      OpenAIProvider,
+      BedrockProvider,
+      GithubProvider,
+      WenxinProvider,
+      HuggingFaceProvider,
+      SenseNovaProvider,
+    ],
   );
 };

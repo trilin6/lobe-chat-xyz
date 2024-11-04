@@ -2,10 +2,11 @@
 
 import { Flexbox } from 'react-layout-kit';
 
-import Footer from '@/app/(main)/settings/llm/components/Footer';
+import { isCustomBranding } from '@/const/version';
 
 import { useProviderList } from './ProviderList/providers';
 import ProviderConfig from './components/ProviderConfig';
+import Footer from './features/Footer';
 
 const Page = () => {
   const list = useProviderList();
@@ -15,7 +16,7 @@ const Page = () => {
       {list.map(({ id, ...res }) => (
         <ProviderConfig id={id as any} key={id} {...res} />
       ))}
-      <Footer />
+      {!isCustomBranding && <Footer />}
     </Flexbox>
   );
 };

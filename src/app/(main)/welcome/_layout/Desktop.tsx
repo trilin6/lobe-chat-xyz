@@ -1,10 +1,12 @@
-import { GridShowcase, Logo } from '@lobehub/ui';
+import { GridShowcase } from '@lobehub/ui';
 import { PropsWithChildren } from 'react';
 import { Flexbox } from 'react-layout-kit';
 
+import { ORG_NAME } from '@/const/branding';
+import { isCustomORG } from '@/const/version';
 import Follow from '@/features/Follow';
 
-const COPYRIGHT = `© ${new Date().getFullYear()} LobeHub, LLC`;
+const COPYRIGHT = `© ${new Date().getFullYear()} ${ORG_NAME}`;
 
 const DesktopLayout = ({ children }: PropsWithChildren) => {
   return (
@@ -17,13 +19,17 @@ const DesktopLayout = ({ children }: PropsWithChildren) => {
         style={{ overflow: 'hidden', position: 'relative' }}
         width={'100%'}
       >
-        <Logo size={36} style={{ alignSelf: 'flex-start' }} type={'text'} />
-        <GridShowcase innerProps={{ gap: 24 }} style={{ maxWidth: 1024 }} width={'100%'}>
+        <div />
+        <GridShowcase
+          innerProps={{ gap: 24 }}
+          style={{ maxHeight: 'calc(100% - 104px)', maxWidth: 1024 }}
+          width={'100%'}
+        >
           {children}
         </GridShowcase>
         <Flexbox align={'center'} horizontal justify={'space-between'}>
           <span style={{ opacity: 0.5 }}>{COPYRIGHT}</span>
-          <Follow />
+          {isCustomORG ? <div /> : <Follow />}
         </Flexbox>
       </Flexbox>
       {/* ↓ cloud slot ↓ */}

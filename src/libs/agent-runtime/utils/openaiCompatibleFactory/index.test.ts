@@ -8,6 +8,7 @@ import {
   LobeOpenAICompatibleRuntime,
   ModelProvider,
 } from '@/libs/agent-runtime';
+import { sleep } from '@/utils/sleep';
 
 import * as debugStreamModule from '../debugStream';
 import { LobeOpenAICompatibleFactory } from './index';
@@ -265,8 +266,84 @@ describe('LobeOpenAICompatibleFactory', () => {
         );
       });
 
+      it.skip('should handle anthropic sonnet 3.5 tool calling chunks correctly', async () => {
+        const chunks = [
+          {
+            id: 'chatcmpl-b3f58dc5-0699-4b28-aefe-6624c2a68d51',
+            created: 1718909418,
+            model: 'claude-3-5-sonnet-20240620',
+            object: 'chat.completion.chunk',
+
+            choices: [
+              {
+                index: 0,
+                delta: {
+                  content:
+                    '好的,我可以帮您查询杭州的天气情况。让我使用实时天气工具来获取杭州的当前天气信息。',
+                  id: 'rolu_01JXyRw6Ti78mR2dn6U5h1pa',
+                  function: {
+                    arguments: '{"city": "杭州"}',
+                    name: 'realtime-weather____fetchCurrentWeather',
+                  },
+                  type: 'function',
+                  index: 0,
+                },
+              },
+            ],
+          },
+          {
+            id: 'chatcmpl-b3f58dc5-0699-4b28-aefe-6624c2a68d51',
+            choices: [{ finish_reason: 'stop', index: 0, delta: {} }],
+            created: 1718909418,
+            model: 'claude-3-5-sonnet-20240620',
+            object: 'chat.completion.chunk',
+          },
+        ];
+        const mockStream = new ReadableStream({
+          start(controller) {
+            chunks.forEach((item) => {
+              controller.enqueue(item);
+            });
+
+            controller.close();
+          },
+        });
+        vi.spyOn(instance['client'].chat.completions, 'create').mockResolvedValue(
+          mockStream as any,
+        );
+
+        const stream: string[] = [];
+        const result = await instance.chat({
+          messages: [{ content: 'Hello', role: 'user' }],
+          model: 'gpt-3.5-turbo',
+          temperature: 0,
+        });
+        const decoder = new TextDecoder();
+        const reader = result.body!.getReader();
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          stream.push(decoder.decode(value));
+        }
+
+        expect(stream).toEqual(
+          [
+            'id: chatcmpl-b3f58dc5-0699-4b28-aefe-6624c2a68d51',
+            'event: text',
+            'data: "好的,我可以帮您查询杭州的天气情况。让我使用实时天气工具来获取杭州的当前天气信息。"\n',
+            'id: chatcmpl-b3f58dc5-0699-4b28-aefe-6624c2a68d51',
+            'event: tool_calls',
+            'data: ""\n',
+            'id: chatcmpl-b3f58dc5-0699-4b28-aefe-6624c2a68d51',
+            'event: stop',
+            'data: "stop"\n',
+          ].map((item) => `${item}\n`),
+        );
+      });
+
       it('should transform non-streaming response to stream correctly', async () => {
-        const mockResponse: OpenAI.ChatCompletion = {
+        const mockResponse = {
           id: 'a',
           object: 'chat.completion',
           created: 123,
@@ -284,7 +361,7 @@ describe('LobeOpenAICompatibleFactory', () => {
             completion_tokens: 5,
             total_tokens: 10,
           },
-        };
+        } as OpenAI.ChatCompletion;
         vi.spyOn(instance['client'].chat.completions, 'create').mockResolvedValue(
           mockResponse as any,
         );
@@ -297,15 +374,23 @@ describe('LobeOpenAICompatibleFactory', () => {
         });
 
         const decoder = new TextDecoder();
-
         const reader = result.body!.getReader();
-        expect(decoder.decode((await reader.read()).value)).toContain('id: a\n');
-        expect(decoder.decode((await reader.read()).value)).toContain('event: text\n');
-        expect(decoder.decode((await reader.read()).value)).toContain('data: "Hello"\n\n');
+        const stream: string[] = [];
 
-        expect(decoder.decode((await reader.read()).value)).toContain('id: a\n');
-        expect(decoder.decode((await reader.read()).value)).toContain('event: text\n');
-        expect(decoder.decode((await reader.read()).value)).toContain('');
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          stream.push(decoder.decode(value));
+        }
+
+        expect(stream).toEqual([
+          'id: a\n',
+          'event: text\n',
+          'data: "Hello"\n\n',
+          'id: a\n',
+          'event: stop\n',
+          'data: "stop"\n\n',
+        ]);
 
         expect((await reader.read()).done).toBe(true);
       });
@@ -333,12 +418,113 @@ describe('LobeOpenAICompatibleFactory', () => {
       });
     });
 
+    describe('noUserId option', () => {
+      it('should not add user to payload when noUserId is true', async () => {
+        const LobeMockProvider = LobeOpenAICompatibleFactory({
+          baseURL: 'https://api.mistral.ai/v1',
+          chatCompletion: {
+            noUserId: true,
+          },
+          provider: ModelProvider.Mistral,
+        });
+
+        const instance = new LobeMockProvider({ apiKey: 'test' });
+        const mockCreateMethod = vi
+          .spyOn(instance['client'].chat.completions, 'create')
+          .mockResolvedValue(new ReadableStream() as any);
+
+        await instance.chat(
+          {
+            messages: [{ content: 'Hello', role: 'user' }],
+            model: 'open-mistral-7b',
+            temperature: 0,
+          },
+          { user: 'testUser' },
+        );
+
+        expect(mockCreateMethod).toHaveBeenCalledWith(
+          expect.not.objectContaining({
+            user: 'testUser',
+          }),
+          expect.anything(),
+        );
+      });
+
+      it('should add user to payload when noUserId is false', async () => {
+        const LobeMockProvider = LobeOpenAICompatibleFactory({
+          baseURL: 'https://api.mistral.ai/v1',
+          chatCompletion: {
+            noUserId: false,
+          },
+          provider: ModelProvider.Mistral,
+        });
+
+        const instance = new LobeMockProvider({ apiKey: 'test' });
+        const mockCreateMethod = vi
+          .spyOn(instance['client'].chat.completions, 'create')
+          .mockResolvedValue(new ReadableStream() as any);
+
+        await instance.chat(
+          {
+            messages: [{ content: 'Hello', role: 'user' }],
+            model: 'open-mistral-7b',
+            temperature: 0,
+          },
+          { user: 'testUser' },
+        );
+
+        expect(mockCreateMethod).toHaveBeenCalledWith(
+          expect.objectContaining({
+            user: 'testUser',
+          }),
+          expect.anything(),
+        );
+      });
+
+      it('should add user to payload when noUserId is not set in chatCompletion', async () => {
+        const LobeMockProvider = LobeOpenAICompatibleFactory({
+          baseURL: 'https://api.mistral.ai/v1',
+          provider: ModelProvider.Mistral,
+        });
+
+        const instance = new LobeMockProvider({ apiKey: 'test' });
+        const mockCreateMethod = vi
+          .spyOn(instance['client'].chat.completions, 'create')
+          .mockResolvedValue(new ReadableStream() as any);
+
+        await instance.chat(
+          {
+            messages: [{ content: 'Hello', role: 'user' }],
+            model: 'open-mistral-7b',
+            temperature: 0,
+          },
+          { user: 'testUser' },
+        );
+
+        expect(mockCreateMethod).toHaveBeenCalledWith(
+          expect.objectContaining({
+            user: 'testUser',
+          }),
+          expect.anything(),
+        );
+      });
+    });
+
     describe('cancel request', () => {
       it('should cancel ongoing request correctly', async () => {
         const controller = new AbortController();
-        const mockCreateMethod = vi.spyOn(instance['client'].chat.completions, 'create');
+        const mockCreateMethod = vi
+          .spyOn(instance['client'].chat.completions, 'create')
+          .mockImplementation(
+            () =>
+              new Promise((_, reject) => {
+                setTimeout(() => {
+                  reject(new DOMException('The user aborted a request.', 'AbortError'));
+                }, 100);
+              }) as any,
+          );
 
-        instance.chat(
+        const chatPromise = instance.chat(
           {
             messages: [{ content: 'Hello', role: 'user' }],
             model: 'mistralai/mistral-7b-instruct:free',
@@ -347,8 +533,22 @@ describe('LobeOpenAICompatibleFactory', () => {
           { signal: controller.signal },
         );
 
+        // 给一些时间让请求开始
+        await sleep(50);
+
         controller.abort();
 
+        // 等待并断言 Promise 被拒绝
+        // 使用 try-catch 来捕获和验证错误
+        try {
+          await chatPromise;
+          // 如果 Promise 没有被拒绝，测试应该失败
+          expect.fail('Expected promise to be rejected');
+        } catch (error) {
+          expect((error as any).errorType).toBe('AgentRuntimeError');
+          expect((error as any).error.name).toBe('AbortError');
+          expect((error as any).error.message).toBe('The user aborted a request.');
+        }
         expect(mockCreateMethod).toHaveBeenCalledWith(
           expect.anything(),
           expect.objectContaining({

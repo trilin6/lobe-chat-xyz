@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { memo, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { createStoreUpdater } from 'zustand-utils';
 
 import { LOBE_URL_IMPORT_NAME } from '@/const/url';
@@ -10,17 +11,23 @@ import { useEnabledDataSync } from '@/hooks/useSyncData';
 import { useAgentStore } from '@/store/agent';
 import { useGlobalStore } from '@/store/global';
 import { useServerConfigStore } from '@/store/serverConfig';
+import { serverConfigSelectors } from '@/store/serverConfig/selectors';
 import { useUserStore } from '@/store/user';
 import { authSelectors } from '@/store/user/selectors';
 
 const StoreInitialization = memo(() => {
-  const router = useRouter();
+  // prefetch error ns to avoid don't show error content correctly
+  useTranslation('error');
 
-  const [isLogin, useInitUserState, importUrlShareSettings] = useUserStore((s) => [
-    authSelectors.isLogin(s),
-    s.useInitUserState,
-    s.importUrlShareSettings,
-  ]);
+  const router = useRouter();
+  const [isLogin, isSignedIn, useInitUserState, importUrlShareSettings, isUserStateInit] =
+    useUserStore((s) => [
+      authSelectors.isLogin(s),
+      s.isSignedIn,
+      s.useInitUserState,
+      s.importUrlShareSettings,
+      s.isUserStateInit,
+    ]);
 
   const { serverConfig } = useServerConfigStore();
 
@@ -31,10 +38,25 @@ const StoreInitialization = memo(() => {
   // init the system preference
   useInitSystemStatus();
 
-  // init inbox agent and default agent config
-  useInitAgentStore(serverConfig.defaultAgent?.config);
+  // Update NextAuth status
+  const useUserStoreUpdater = createStoreUpdater(useUserStore);
+  const enableNextAuth = useServerConfigStore(serverConfigSelectors.enabledOAuthSSO);
+  useUserStoreUpdater('enabledNextAuth', enableNextAuth);
+  const oAuthSSOProviders = useServerConfigStore(serverConfigSelectors.oAuthSSOProviders);
+  useUserStoreUpdater('oAuthSSOProviders', oAuthSSOProviders);
 
-  useInitUserState(isLogin, serverConfig, {
+  /**
+   * The store function of `isLogin` will both consider the values of `enableAuth` and `isSignedIn`.
+   * But during initialization, the value of `enableAuth` might be incorrect cause of the async fetch.
+   * So we need to use `isSignedIn` only to determine whether request for the default agent config and user state.
+   */
+  const isLoginOnInit = enableNextAuth ? isSignedIn : isLogin;
+
+  // init inbox agent and default agent config
+  useInitAgentStore(isLoginOnInit, serverConfig.defaultAgent?.config);
+
+  // init user state
+  useInitUserState(isLoginOnInit, serverConfig, {
     onSuccess: (state) => {
       if (state.isOnboard === false) {
         router.push('/onboard');
@@ -54,24 +76,19 @@ const StoreInitialization = memo(() => {
   // Import settings from the url
   const searchParam = useSearchParams().get(LOBE_URL_IMPORT_NAME);
   useEffect(() => {
-    importUrlShareSettings(searchParam);
-  }, [searchParam]);
+    // Why use `usUserStateInit`,
+    // see: https://github.com/lobehub/lobe-chat/pull/4072
+    if (searchParam && isUserStateInit) importUrlShareSettings(searchParam);
+  }, [searchParam, isUserStateInit]);
 
-  // useEffect(() => {
-  //   router.prefetch('/chat');
-  //   router.prefetch('/market');
-  //
-  //   if (mobile) {
-  //     router.prefetch('/me');
-  //     router.prefetch('/chat/settings');
-  //     router.prefetch('/settings/common');
-  //     router.prefetch('/settings/agent');
-  //     router.prefetch('/settings/sync');
-  //   } else {
-  //     router.prefetch('/chat/settings/modal');
-  //     router.prefetch('/settings/modal');
-  //   }
-  // }, [router, mobile]);
+  useEffect(() => {
+    if (mobile) {
+      router.prefetch('/me');
+    } else {
+      router.prefetch('/chat/settings/modal');
+      router.prefetch('/settings/modal');
+    }
+  }, [router, mobile]);
 
   return null;
 });
